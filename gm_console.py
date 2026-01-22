@@ -1,13 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-GM Console v7.0 - "Industrial Precision" UI Overhaul
-Theme: Industrial Glass / Tactical Interface
-Features:
-1. Texture: Added subtle Dot-Matrix background pattern for depth.
-2. Lighting: Cards now use subtle gradients to simulate matte surfacing.
-3. Physics: Inputs look recessed (inset), Cards look elevated (glass).
-4. Typography: Tighter tracking and monospaced numbers for data density.
+GM Console v7.1 - Dialog Input Fix
+Fixes:
+1. UI Bug: Fixed "New Script" dialog input label clipping. 
+   Switched from Quasar Labels to Placeholders to fit the custom 32px height constraint.
 """
 
 import asyncio
@@ -334,7 +331,7 @@ def main():
             cursor: pointer;
         }
         
-        /* Subtle noise texture on cards (optional, adds grit) */
+        /* Subtle noise texture on cards */
         .control-tile::before {
             content: "";
             position: absolute;
@@ -355,14 +352,13 @@ def main():
             border-color: var(--accent);
         }
 
-        /* Active State (Breathing Glow) */
+        /* Active State */
         .control-tile.active {
             border-color: var(--accent);
             box-shadow: 0 0 0 1px var(--accent), 0 0 20px var(--accent-dim);
             background: linear-gradient(145deg, var(--bg-surface) 0%, var(--accent-dim) 100%);
         }
 
-        /* Typography inside cards */
         .tile-head {
             font-size: 11px;
             font-weight: 600;
@@ -382,14 +378,14 @@ def main():
         /* --- BUTTONS --- */
         .btn-action {
             background-color: var(--accent);
-            color: #000; /* Contrast text on bright accent */
+            color: #000;
             font-weight: 700;
             border-radius: var(--radius-sm);
             letter-spacing: 0.05em;
             box-shadow: 0 0 10px var(--accent-dim);
             transition: 0.2s;
         }
-        body.theme-light .btn-action { color: #fff; } /* White text on dark accent for light mode */
+        body.theme-light .btn-action { color: #fff; }
         
         .btn-action:hover {
             box-shadow: 0 0 15px var(--accent-glow);
@@ -401,7 +397,6 @@ def main():
         }
         .btn-ghost:hover { color: var(--text-pri); background: var(--bg-highlight); }
 
-        /* Scrollbar */
         ::-webkit-scrollbar { width: 4px; height: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 2px; }
@@ -497,7 +492,7 @@ def main():
                 ui.icon('token', size='sm').classes('text-[var(--accent)]')
                 with ui.column().classes('gap-0'):
                     ui.label('GM_CONSOLE').classes('font-bold text-lg leading-none tech-font text-[var(--text-pri)]')
-                    ui.label('VER 7.0 // INDUSTRIAL_CORE').classes('text-[9px] font-bold text-[var(--text-sec)] tracking-[0.2em]')
+                    ui.label('VER 7.1 // INDUSTRIAL_CORE').classes('text-[9px] font-bold text-[var(--text-sec)] tracking-[0.2em]')
             
         with ui.row().classes('items-center gap-6'):
              with ui.row().classes('items-center gap-2 px-3 py-1 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-base)]'):
@@ -684,10 +679,13 @@ def main():
                     with ui.tab_panel('CustomGM').classes('p-0'):
                         with ui.row().classes('w-full mb-3 justify-between items-center'):
                             ui.button('NEW SCRIPT', icon='add', on_click=lambda: add_dlg.open()).props('unelevated dense size=sm').classes('btn-action px-3 text-xs')
+                            
+                            # --- FIXED DIALOG INPUTS ---
                             with ui.dialog() as add_dlg, ui.card().classes('w-96 p-4 gap-4 glass-panel border border-[var(--border-subtle)]'):
                                 ui.label('NEW PROTOCOL').classes('font-bold text-[var(--text-pri)] tech-font')
-                                n_in = ui.input('Name').classes('w-full clean-input input-slot px-2')
-                                c_in = ui.textarea('Payload').classes('w-full clean-textarea input-slot px-2')
+                                # FIX: Removed first argument (Label) and used placeholder prop instead
+                                n_in = ui.input(placeholder='PROTOCOL_NAME').props('dense borderless').classes('w-full clean-input input-slot px-2')
+                                c_in = ui.textarea(placeholder='PAYLOAD_LUA').props('borderless').classes('w-full clean-textarea input-slot px-2')
                                 ui.button('SAVE', on_click=lambda: (custom_mgr.add(n_in.value, c_in.value), add_dlg.close(), r_cust())).classes('btn-action w-full')
                         
                         c_grid = ui.grid().classes('w-full gap-3')
@@ -736,4 +734,4 @@ def kill_web_ui_port(port):
 
 if __name__ in {"__main__", "__mp_main__"}:
     kill_web_ui_port(9529)
-    ui.run(title="GM Core 7.0", host="0.0.0.0", port=9529, reload=False, favicon='💠')
+    ui.run(title="GM Core 7.1", host="0.0.0.0", port=9529, reload=False, favicon='💠')
