@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-GM Console v5.12 - Context Switch Fix
-Fixes:
-1. Critical Bug: Fixed UI not clearing/refreshing when switching between Connected and Waiting ports.
-   (Removed faulty optimization in refresh_gm_proxy that prevented context reloading).
-2. Verified: Button states (Toggles) are correctly restored per-client.
+GM Console v7.0 - "Industrial Precision" UI Overhaul
+Theme: Industrial Glass / Tactical Interface
+Features:
+1. Texture: Added subtle Dot-Matrix background pattern for depth.
+2. Lighting: Cards now use subtle gradients to simulate matte surfacing.
+3. Physics: Inputs look recessed (inset), Cards look elevated (glass).
+4. Typography: Tighter tracking and monospaced numbers for data density.
 """
 
 import asyncio
@@ -26,7 +28,7 @@ def _windows_exception_handler(loop, context):
     loop.default_exception_handler(context)
 
 # ============================================================================
-# Logic Components (Backend)
+# Logic Components (Backend - Unchanged)
 # ============================================================================
 
 class CustomGmManager:
@@ -60,7 +62,6 @@ class Client:
     writer: asyncio.StreamWriter
     device: str = "Unknown"
     platform: str = "Unknown"
-    # Per-Client Data Storage
     gm_tree: List[Any] = field(default_factory=list) 
     ui_states: Dict[str, Any] = field(default_factory=dict)
 
@@ -209,22 +210,202 @@ ui_settings = {"custom_cols": 5}
 # ============================================================================
 @ui.page('/')
 def main():
+    # --- CSS DESIGN SYSTEM ---
     ui.add_head_html('''
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Inter', sans-serif; background-color: #F8FAFC; color: #334155; }
-        .mono { font-family: 'JetBrains Mono', monospace; }
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 3px; }
-        .dark-input input::placeholder { color: #64748B !important; opacity: 1; }
-        .dark-input input { color: white !important; }
-        @keyframes pulse-yellow {
-            0% { box-shadow: 0 0 0 0 rgba(234, 179, 8, 0.4); }
-            70% { box-shadow: 0 0 0 6px rgba(234, 179, 8, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(234, 179, 8, 0); }
+        :root {
+            /* Theme: Obsidian (Dark / Matte / Technical) */
+            --bg-base: #0a0a0c;       /* Near Black */
+            --bg-surface: #131316;    /* Dark Matte Grey */
+            --bg-highlight: #1c1c21;  /* Card surface */
+            
+            --border-subtle: rgba(255, 255, 255, 0.08);
+            --border-strong: rgba(255, 255, 255, 0.15);
+            
+            /* The "Matrix" Dot Pattern */
+            --pattern-color: rgba(255,255,255,0.03);
+            
+            /* Accent: Electric Cyan */
+            --accent: #00e5ff;
+            --accent-dim: rgba(0, 229, 255, 0.1);
+            --accent-glow: rgba(0, 229, 255, 0.4);
+            
+            --text-pri: #ececf1;
+            --text-sec: #8d8d96;
+            
+            --font-ui: 'Inter', sans-serif;
+            --font-tech: 'Rajdhani', sans-serif; /* For headers */
+            --font-mono: 'JetBrains Mono', monospace;
+            
+            --radius-sm: 4px;
+            --radius-md: 8px;
         }
-        .status-waiting { animation: pulse-yellow 2s infinite; }
+
+        body.theme-light {
+            /* Theme: Frost (Light / Clean / Architectural) */
+            --bg-base: #f4f5f7;
+            --bg-surface: #ffffff;
+            --bg-highlight: #ffffff;
+            
+            --border-subtle: rgba(0, 0, 0, 0.06);
+            --border-strong: rgba(0, 0, 0, 0.12);
+            
+            --pattern-color: rgba(0,0,0,0.03);
+            
+            /* Accent: International Orange / Deep Slate */
+            --accent: #2c3e50; 
+            --accent-dim: rgba(44, 62, 80, 0.05);
+            --accent-glow: rgba(44, 62, 80, 0.2);
+            
+            --text-pri: #1a1a1a;
+            --text-sec: #64748b;
+        }
+
+        body { 
+            font-family: var(--font-ui); 
+            background-color: var(--bg-base); 
+            color: var(--text-pri);
+            margin: 0;
+            /* High-end Dot Matrix Background */
+            background-image: radial-gradient(var(--pattern-color) 1px, transparent 1px);
+            background-size: 20px 20px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        /* --- Utility Classes --- */
+        .glass-panel {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-subtle);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+        }
+        
+        .tech-font { font-family: var(--font-tech); letter-spacing: 0.05em; text-transform: uppercase; }
+        .mono-font { font-family: var(--font-mono); }
+
+        /* --- INPUTS: Recessed Look (Inset) --- */
+        .input-slot {
+            background-color: rgba(0,0,0,0.2); /* Darker than card */
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-sm);
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.2); /* Inset shadow for depth */
+            transition: all 0.2s;
+        }
+        body.theme-light .input-slot {
+            background-color: #f1f2f6;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
+        }
+        
+        .input-slot:focus-within {
+            border-color: var(--accent);
+            background-color: rgba(0,0,0,0.3);
+        }
+        body.theme-light .input-slot:focus-within {
+            background-color: #ffffff;
+        }
+
+        /* Q-Input Overrides for Visibility */
+        .clean-input .q-field__control { height: 32px; min-height: 32px; }
+        .clean-input .q-field__control:before, .clean-input .q-field__control:after { display: none; }
+        .clean-input .q-field__native, .clean-input .q-field__input {
+            color: var(--text-pri) !important; 
+            font-family: var(--font-mono);
+            font-size: 12px;
+            caret-color: var(--accent);
+        }
+        .clean-textarea .q-field__native {
+            color: var(--text-pri) !important;
+            font-family: var(--font-mono);
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        /* --- CARDS: Elevated "Matte" Look --- */
+        .control-tile {
+            /* Gradient for subtle sheen */
+            background: linear-gradient(145deg, var(--bg-highlight) 0%, var(--bg-surface) 100%);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-md);
+            position: relative;
+            overflow: hidden;
+            transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
+            cursor: pointer;
+        }
+        
+        /* Subtle noise texture on cards (optional, adds grit) */
+        .control-tile::before {
+            content: "";
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.03'/%3E%3C/svg%3E");
+            pointer-events: none;
+            opacity: 0.5;
+        }
+
+        .control-tile:hover {
+            transform: translateY(-2px);
+            border-color: var(--text-sec);
+            box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+        }
+        
+        .control-tile:active {
+            transform: translateY(0);
+            border-color: var(--accent);
+        }
+
+        /* Active State (Breathing Glow) */
+        .control-tile.active {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 1px var(--accent), 0 0 20px var(--accent-dim);
+            background: linear-gradient(145deg, var(--bg-surface) 0%, var(--accent-dim) 100%);
+        }
+
+        /* Typography inside cards */
+        .tile-head {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-pri);
+            letter-spacing: 0.02em;
+            line-height: 1.3;
+            z-index: 1; position: relative;
+        }
+        .tile-meta {
+            font-family: var(--font-mono);
+            font-size: 9px;
+            color: var(--text-sec);
+            text-transform: uppercase;
+            z-index: 1; position: relative;
+        }
+
+        /* --- BUTTONS --- */
+        .btn-action {
+            background-color: var(--accent);
+            color: #000; /* Contrast text on bright accent */
+            font-weight: 700;
+            border-radius: var(--radius-sm);
+            letter-spacing: 0.05em;
+            box-shadow: 0 0 10px var(--accent-dim);
+            transition: 0.2s;
+        }
+        body.theme-light .btn-action { color: #fff; } /* White text on dark accent for light mode */
+        
+        .btn-action:hover {
+            box-shadow: 0 0 15px var(--accent-glow);
+            filter: brightness(1.1);
+        }
+        
+        .btn-ghost {
+            color: var(--text-sec);
+        }
+        .btn-ghost:hover { color: var(--text-pri); background: var(--bg-highlight); }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 2px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-sec); }
     </style>
     ''')
 
@@ -232,7 +413,6 @@ def main():
     log_container = None
     target_label = None
     
-    # Refresh callbacks (proxies)
     refresh_gm_panel_callback = None 
     refresh_custom_panel_callback = None
 
@@ -241,16 +421,16 @@ def main():
         if not target_label: return
         p = state["sel_port"]
         if p is None:
-            target_label.text = 'Target: Broadcast (All)'
-            target_label.classes('text-slate-400 font-medium', remove='text-blue-600 text-red-500 font-bold')
+            target_label.text = 'BROADCAST_LINK // ACTIVE'
+            target_label.classes('text-[var(--accent)]', remove='text-amber-500 text-[var(--text-sec)]')
         else:
             client = next((c for c in mgr.clients.values() if c.port == p), None)
             if client:
-                target_label.text = f'Target: {client.device} (:{p})'
-                target_label.classes('text-blue-600 font-bold', remove='text-slate-400 text-red-500 font-medium')
+                target_label.text = f'LINK_ESTABLISHED: {client.device.upper()} [:{p}]'
+                target_label.classes('text-emerald-500', remove='text-[var(--text-sec)] text-[var(--accent)] text-amber-500')
             else:
-                target_label.text = f'Target: Port {p} (No Device)'
-                target_label.classes('text-red-500 font-bold', remove='text-slate-400 text-blue-600 font-medium')
+                target_label.text = f'LINK_LOST: PORT_{p}'
+                target_label.classes('text-amber-500', remove='text-[var(--text-sec)] text-[var(--accent)] text-emerald-500')
 
     def refresh_list():
         if not list_container: return
@@ -258,60 +438,46 @@ def main():
         update_target_label()
         
         with list_container:
-            # Broadcast Grid
+            # Broadcast Card
             is_all_sel = state["sel_port"] is None
-            all_bg = 'bg-blue-600 border-blue-500' if is_all_sel else 'bg-slate-800 border-slate-700 hover:border-slate-500'
-            all_txt = 'text-white' if is_all_sel else 'text-slate-400'
+            bc_classes = 'control-tile active' if is_all_sel else 'control-tile opacity-60'
             
-            with ui.card().classes(f'w-full p-2 mb-3 {all_bg} border cursor-pointer transition-all').on('click', lambda: select_port(None)):
-                with ui.row().classes('items-center gap-2 justify-center w-full'):
-                    ui.icon('rss_feed', size='xs').classes(all_txt)
-                    ui.label('Broadcast (All Ports)').classes(f'{all_txt} text-xs font-bold uppercase')
+            with ui.row().classes(f'w-full p-3 mb-3 {bc_classes} items-center justify-center gap-2').on('click', lambda: select_port(None)):
+                ui.icon('hub', size='xs').classes('text-[var(--text-pri)]')
+                ui.label('BROADCAST_MESH').classes('text-xs font-bold tech-font text-[var(--text-pri)]')
 
             # Active Ports
             active_ports = sorted(mgr.listeners.keys())
             for port in active_ports:
                 connected_client = next((c for c in mgr.clients.values() if c.port == port), None)
                 is_selected = (state["sel_port"] == port)
+                card_cls = 'control-tile active' if is_selected else 'control-tile'
                 
-                if is_selected:
-                    bg_cls = 'bg-blue-900/40 border-blue-500 border-2' 
-                    header_bg = 'bg-blue-600/20'
-                    txt_main = 'text-white'
-                    txt_sub = 'text-blue-200'
-                else:
-                    bg_cls = 'bg-slate-800 border-slate-700 hover:border-slate-600'
-                    header_bg = 'bg-black/10'
-                    txt_main = 'text-slate-200'
-                    txt_sub = 'text-slate-400'
-
-                with ui.card().classes(f'w-full p-0 mb-3 {bg_cls} border transition-all relative group cursor-pointer').on('click', lambda p=port: select_port(p)) as card:
-                    with ui.row().classes(f'w-full justify-between items-center px-3 py-2 {header_bg}'):
-                        with ui.row().classes('items-center gap-2'):
-                            ui.icon('dns', size='xs').classes('text-slate-400')
-                            ui.label(f':{port}').classes(f'{txt_main} font-mono text-sm font-bold')
+                with ui.column().classes(f'w-full p-0 mb-2 {card_cls} group').on('click', lambda p=port: select_port(p)):
+                    # Header
+                    with ui.row().classes('w-full justify-between items-center px-3 py-2 border-b border-[var(--border-subtle)] bg-[var(--bg-base)]/30'):
+                        ui.label(f':{port}').classes('text-[10px] font-mono text-[var(--text-pri)] opacity-70')
                         
                         async def close_port(p=port):
                             await mgr.remove_listener(p)
                             if state["sel_port"] == p: 
                                 state["sel_port"] = None
                                 if refresh_gm_panel_callback: refresh_gm_panel_callback()
-                            ui.notify(f'Port {p} Closed', type='info')
+                            ui.notify(f'Terminated Port {p}', type='info')
                             refresh_list()
                         
-                        ui.button(on_click=close_port, icon='close').props('dense flat size=xs round color=red').classes('hover:bg-red-900/50').on('click.stop', lambda: None)
+                        ui.icon('power_settings_new', size='xs').classes('opacity-0 group-hover:opacity-100 cursor-pointer hover:text-red-500 transition-opacity text-[var(--text-sec)]').on('click.stop', close_port)
 
-                    with ui.column().classes('w-full px-3 py-2 gap-1'):
+                    # Body
+                    with ui.row().classes('w-full px-3 py-2 items-center gap-3'):
                         if connected_client:
-                            with ui.row().classes('items-center gap-2 w-full'):
-                                ui.element('div').classes('w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]')
-                                with ui.column().classes('gap-0 flex-1 min-w-0'):
-                                    ui.label(connected_client.device).classes(f'{txt_main} text-xs font-bold truncate')
-                                    ui.label(connected_client.platform).classes(f'{txt_sub} text-[10px]')
+                            ui.element('div').classes('w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]')
+                            with ui.column().classes('gap-0 flex-1 min-w-0'):
+                                ui.label(connected_client.device).classes('tile-head truncate')
+                                ui.label(connected_client.platform).classes('tile-meta opacity-50')
                         else:
-                            with ui.row().classes('items-center gap-2 w-full opacity-80'):
-                                ui.element('div').classes('w-2 h-2 rounded-full bg-yellow-500 status-waiting')
-                                ui.label('Waiting...').classes('text-yellow-500 text-xs italic font-medium')
+                            ui.element('div').classes('w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse')
+                            ui.label('AWAITING_SIGNAL...').classes('text-[9px] font-bold text-amber-500 tech-font tracking-wider')
 
     def select_port(port):
         state["sel_port"] = port
@@ -321,97 +487,102 @@ def main():
     mgr.on_update = refresh_list
 
     # ==========================================================================
-    # Layout
+    # Layout Structure
     # ==========================================================================
-    with ui.header().classes('h-[50px] bg-white border-b border-slate-200 px-4 flex items-center justify-between z-20 shadow-sm'):
-        with ui.row().classes('items-center gap-3'):
-            ui.icon('terminal', size='sm').classes('text-slate-800')
-            with ui.column().classes('gap-0'):
-                ui.label('GM Console').classes('text-slate-800 font-bold text-sm leading-none')
-                ui.label('Enterprise Edition').classes('text-slate-500 text-[10px] font-medium')
+    
+    # --- HEADER ---
+    with ui.header().classes('h-[54px] glass-panel border-b-0 border-b-[var(--border-subtle)] px-6 flex items-center justify-between z-20').style('background: rgba(var(--bg-base), 0.8)'):
         with ui.row().classes('items-center gap-4'):
-             with ui.row().classes('bg-slate-100 rounded-full px-3 py-1 items-center gap-3 border border-slate-200'):
-                ui.label('Active Ports').classes('text-[10px] text-slate-500 uppercase font-bold')
-                ui.label().bind_text_from(mgr.listeners, lambda l: str(len(l))).classes('text-xs font-bold text-slate-700')
+            with ui.row().classes('items-center gap-2'):
+                ui.icon('token', size='sm').classes('text-[var(--accent)]')
+                with ui.column().classes('gap-0'):
+                    ui.label('GM_CONSOLE').classes('font-bold text-lg leading-none tech-font text-[var(--text-pri)]')
+                    ui.label('VER 7.0 // INDUSTRIAL_CORE').classes('text-[9px] font-bold text-[var(--text-sec)] tracking-[0.2em]')
+            
+        with ui.row().classes('items-center gap-6'):
+             with ui.row().classes('items-center gap-2 px-3 py-1 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-base)]'):
+                ui.element('div').classes('w-2 h-2 rounded-full bg-emerald-500 animate-pulse')
+                ui.label().bind_text_from(mgr.listeners, lambda l: f'{len(l)} NODES ONLINE').classes('text-[10px] font-bold font-mono text-[var(--text-pri)]')
+             
+             ui.button(on_click=lambda: ui.run_javascript('document.body.classList.toggle("theme-light")'), icon='contrast').props('flat round dense size=sm').classes('btn-ghost')
 
-    with ui.row().classes('w-full h-[calc(100vh-50px)] gap-0 no-wrap'):
-        # --- Sidebar ---
-        with ui.column().classes('w-[260px] h-full bg-[#0F172A] p-4 flex-none overflow-y-auto border-r border-slate-800 shadow-inner'):
-            ui.label('ADD LISTENER').classes('text-slate-500 text-[10px] font-bold tracking-wider mb-2')
-            with ui.row().classes('w-full gap-2 mb-6 items-center'):
-                port_input = ui.input(placeholder='Port').props('dense outlined input-class="text-white"').classes('flex-1 dark-input bg-slate-800/50 rounded').style('font-size: 13px;')
+    # --- BODY ---
+    with ui.row().classes('w-full h-[calc(100vh-54px)] gap-0 no-wrap'):
+        
+        # --- LEFT SIDEBAR ---
+        with ui.column().classes('w-[280px] h-full glass-panel border-l-0 border-y-0 p-5 flex-none overflow-y-auto'):
+            ui.label('LISTENER_CONFIG').classes('text-[10px] font-bold text-[var(--text-sec)] mb-3 tech-font tracking-widest')
+            
+            with ui.row().classes('w-full mb-8 input-slot p-1'):
+                port_input = ui.input(placeholder='PORT_ID').props('dense borderless input-class="text-center"').classes('flex-1 clean-input pl-2')
                 port_input.value = '12581'
-                
                 async def handle_add():
                     val = port_input.value
                     if not val or not val.isdigit():
                         ui.notify('Invalid Port', type='warning'); return
                     p = int(val)
-                    
                     success, msg = await mgr.add_listener(p)
                     if success:
-                        ui.notify(f'Port {p} Added', type='positive')
+                        ui.notify(f'Listener {p} Initialized', type='positive')
                         port_input.value = str(p + 1)
                         refresh_list()
                     else:
                         ui.notify(msg, type='negative')
+                ui.button(on_click=handle_add, icon='add').props('flat dense size=sm').classes('text-[var(--accent)] rounded hover:bg-[var(--bg-highlight)] w-[32px]')
 
-                ui.button(on_click=handle_add, icon='add').props('dense flat color=white').classes('min-w-[32px] px-0 hover:bg-blue-600 rounded transition-colors')
-
-            ui.label('LISTENER GRIDS').classes('text-slate-500 text-[10px] font-bold tracking-wider mb-2')
+            ui.label('NETWORK_GRID').classes('text-[10px] font-bold text-[var(--text-sec)] mb-3 tech-font tracking-widest')
             list_container = ui.column().classes('w-full gap-0')
             refresh_list()
 
-        # --- Main Area ---
-        with ui.column().classes('flex-1 h-full bg-[#F8FAFC] p-6 overflow-y-auto gap-6'):
-            # Lua Executor
-            with ui.column().classes('ent-card w-full p-0 overflow-hidden'):
-                with ui.row().classes('bg-slate-50 border-b border-slate-200 px-4 py-2 justify-between items-center w-full'):
+        # --- CENTER STAGE ---
+        with ui.column().classes('flex-1 h-full p-6 overflow-y-auto gap-6'):
+            
+            # Lua Terminal
+            with ui.column().classes('control-tile w-full p-0 flex-none group'):
+                with ui.row().classes('w-full justify-between items-center px-4 py-2 border-b border-[var(--border-subtle)] bg-[var(--bg-base)]/50'):
                     with ui.row().classes('items-center gap-2'):
-                        ui.icon('code', size='xs').classes('text-slate-400')
-                        ui.label('LUA EXECUTOR').classes('text-xs font-bold text-slate-700')
-                    target_label = ui.label('Target: Broadcast (All)').classes('text-xs text-slate-400 font-medium')
+                        ui.icon('terminal', size='xs').classes('text-[var(--text-sec)]')
+                        ui.label('LUA_EXEC_BUFFER').classes('text-[10px] font-bold text-[var(--text-pri)] tech-font tracking-wide')
+                    target_label = ui.label('INIT...').classes('text-[10px] font-mono font-bold')
                 
-                with ui.column().classes('w-full p-4 gap-3 bg-white'):
-                    txt = ui.textarea(placeholder='-- Lua Code').classes('w-full').props('borderless input-class="mono text-sm"').style('background:#FAFAFA; border:1px solid #E2E8F0; border-radius:6px; padding:12px;')
-                    with ui.row().classes('w-full justify-end gap-2'):
-                        ui.button('Clear', on_click=lambda: txt.set_value('')).props('flat dense color=grey size=sm')
+                with ui.column().classes('w-full p-4 relative'):
+                    txt = ui.textarea(placeholder='// ENTER COMMAND STREAM...').classes('w-full clean-textarea input-slot rounded-md').props('borderless input-class="clean-textarea-input font-mono"').style('padding: 16px; min-height: 80px; resize: none;')
+                    
+                    with ui.row().classes('w-full justify-end gap-3 mt-3'):
+                        ui.button('FLUSH_BUFFER', on_click=lambda: txt.set_value('')).props('flat dense size=xs').classes('text-[var(--text-sec)] font-mono hover:text-[var(--text-pri)]')
                         async def run_lua():
                             if not txt.value: return
                             success, msg = await mgr.send_to_port(state["sel_port"], txt.value)
-                            if success: ui.notify(msg, type='positive')
+                            if success: ui.notify('Command Executed', type='positive')
                             else: ui.notify(msg, type='warning')
-                        ui.button('Run', on_click=run_lua, icon='play_arrow').props('unelevated dense color=primary size=sm')
+                        ui.button('EXECUTE', on_click=run_lua, icon='play_arrow').props('unelevated dense size=sm').classes('btn-action px-4')
 
-            # Tabs & GM Area
-            with ui.column().classes('ent-card w-full flex-1 min-h-[400px] overflow-hidden'):
-                
-                # --- GLOBAL TAB HEADER ---
-                with ui.tabs().classes('w-full text-slate-600 bg-white border-b border-slate-200').props('dense active-color="primary" indicator-color="primary"') as tabs:
-                    ui.tab('LuaGM', label='Game Commands')
-                    ui.tab('CustomGM', label='Custom Scripts')
-                    ui.space() # Push to right
+            # Main Controls
+            with ui.column().classes('control-tile w-full flex-1 min-h-[400px] overflow-hidden'):
+                with ui.tabs().classes('w-full text-[var(--text-sec)] border-b border-[var(--border-subtle)] bg-[var(--bg-base)]/50').props('dense active-color="accent" indicator-color="accent" align="left"') as tabs:
+                    ui.tab('LuaGM', label='COMMAND_PROTOCOLS').classes('font-bold tech-font tracking-wider text-xs px-6')
+                    ui.tab('CustomGM', label='USER_SCRIPTS').classes('font-bold tech-font tracking-wider text-xs px-6')
+                    ui.space()
                     
-                    # --- NEW GLOBAL DENSITY SLIDER ---
-                    with ui.row().classes('items-center gap-2 mr-6'):
-                        ui.icon('grid_view', size='xs').classes('text-slate-400')
-                        ui.label('DENSITY').classes('text-[10px] text-slate-500 font-bold')
-                        
+                    with ui.row().classes('items-center gap-3 mr-6'):
+                        ui.icon('grid_view', size='xs').classes('text-[var(--text-sec)]')
                         def on_slider_change(e):
                             ui_settings['custom_cols'] = e.value
                             if refresh_gm_panel_callback: refresh_gm_panel_callback()
                             if refresh_custom_panel_callback: refresh_custom_panel_callback()
+                        ui.slider(min=2, max=8, step=1, value=5, on_change=on_slider_change).props('dense size=xs color=grey').classes('w-24').bind_value(ui_settings, 'custom_cols')
+                        
+                        ui.separator().props('vertical').classes('h-4 mx-2 border-[var(--border-subtle)]')
 
-                        ui.slider(min=2, max=8, step=1, value=5, on_change=on_slider_change).props('dense color=primary label-always').classes('w-32').bind_value(ui_settings, 'custom_cols')
+                        async def reload_gm():
+                            c = "RuntimeGMClient.ReloadGM(true)"; 
+                            await mgr.send_to_port(state["sel_port"], c)
+                            ui.notify("Sync Signal Sent")
+                        ui.button(icon='sync', on_click=reload_gm).props('flat round dense size=sm').classes('text-[var(--text-sec)] hover:text-[var(--accent)]')
 
-                    async def reload_gm():
-                        c = "RuntimeGMClient.ReloadGM(true)"; 
-                        success, msg = await mgr.send_to_port(state["sel_port"], c)
-                        if success: ui.notify(msg)
-                        else: ui.notify(msg, type='warning')
-                    ui.button(icon='refresh', on_click=reload_gm).props('flat round dense color=grey')
-
-                with ui.tab_panels(tabs, value='LuaGM').classes('w-full flex-1 bg-slate-50/50 p-4'):
+                with ui.tab_panels(tabs, value='LuaGM').classes('w-full flex-1 bg-transparent p-5'):
+                    
+                    # --- HARMONIZED RENDERER ---
                     with ui.tab_panel('LuaGM').classes('p-0 h-full flex flex-col'):
                         gm_area = ui.column().classes('w-full gap-4')
                         class GMExplorer:
@@ -421,32 +592,37 @@ def main():
                                 p = state["sel_port"]
                                 gm_area.clear()
                                 if p is None:
-                                    with gm_area: ui.label("Select a Connected Port to view Game Commands").classes('w-full text-center text-slate-400 italic py-12')
+                                    with gm_area: ui.label("SELECT TARGET NODE TO INITIALIZE UPLINK").classes('w-full text-center text-[var(--text-sec)] italic py-12 font-mono text-xs opacity-50')
                                     return
                                 client = next((c for c in mgr.clients.values() if c.port == p), None)
                                 self.client_context = client
                                 if not client:
                                     with gm_area:
-                                        with ui.column().classes('w-full items-center justify-center py-12 opacity-50 gap-2'):
-                                            ui.icon('link_off', size='xl').classes('text-slate-300')
-                                            ui.label("Waiting for Device Connection...").classes('text-slate-400 font-medium')
+                                        with ui.column().classes('w-full items-center justify-center py-12 opacity-30 gap-3'):
+                                            ui.icon('cable', size='xl').classes('text-[var(--text-sec)]')
+                                            ui.label("ESTABLISHING HANDSHAKE...").classes('text-[var(--text-sec)] font-bold tech-font')
                                     return
                                 self.root = client.gm_tree
                                 if not self.root:
-                                    with gm_area: ui.label("Waiting for GM List... (Try Refresh)").classes('w-full text-center text-slate-400 py-12')
+                                    with gm_area: ui.label("SYNCING DATA PACKETS...").classes('w-full text-center text-[var(--text-sec)] py-12 font-mono text-xs animate-pulse')
                                 else: self.render()
+                            
                             def nav(self, idx): self.path = [] if idx == -1 else self.path[:idx+1]; self.render()
                             def enter(self, node): self.path.append(node); self.render()
+                            
                             def render(self):
                                 gm_area.clear()
                                 with gm_area:
-                                    with ui.row().classes('w-full items-center bg-white border border-slate-200 rounded px-3 py-2 shadow-sm gap-2'):
-                                        ui.button(icon='home', on_click=lambda: self.nav(-1)).props('flat dense round size=sm color=grey')
+                                    # Breadcrumb
+                                    with ui.row().classes('w-full items-center input-slot px-3 py-1.5 gap-2'):
+                                        ui.button(icon='home', on_click=lambda: self.nav(-1)).props('flat dense round size=xs').classes('text-[var(--text-sec)] hover:text-[var(--text-pri)]')
                                         for i, n in enumerate(self.path):
-                                            ui.icon('chevron_right', size='xs').classes('text-slate-300')
-                                            ui.button(n['name'], on_click=lambda x=i: self.nav(x)).props('flat dense no-caps size=sm')
+                                            ui.icon('chevron_right', size='xs').classes('text-[var(--text-sec)] opacity-40')
+                                            ui.button(n['name'], on_click=lambda x=i: self.nav(x)).props('flat dense no-caps size=sm').classes('text-[var(--accent)] font-mono text-xs font-bold hover:underline')
                                         ui.space()
-                                        ui.input(placeholder='Search').props('dense borderless').classes('bg-slate-50 px-2 rounded w-40').bind_value(self, 'search').on('input', self.render)
+                                        ui.input(placeholder='FILTER_CMD').props('dense borderless input-class="text-[var(--text-pri)] text-right font-mono text-xs"').classes('clean-input w-40').bind_value(self, 'search').on('input', self.render)
+                                    
+                                    # Grid
                                     nodes = self.path[-1]['children'] if self.path else self.root
                                     if self.search:
                                         res = []; 
@@ -460,86 +636,85 @@ def main():
                                     with ui.grid().classes('w-full gap-3').style(f'grid-template-columns: repeat({cols}, minmax(0, 1fr))'):
                                         for n in nodes:
                                             typ, name, nid = n.get('type'), n.get('name'), n.get('id')
+                                            
+                                            # --- UNIFIED TILE STYLING ---
+                                            
                                             if typ == 'Toggle':
                                                 async def tgl(e, i=nid):
-                                                    success, msg = await mgr.send_gm_to_port(state["sel_port"], i, e.value)
-                                                    if not success: ui.notify(msg, type='warning')
+                                                    await mgr.send_gm_to_port(state["sel_port"], i, e.value)
                                                 initial_val = self.client_context.ui_states.get(nid, False)
-                                                with ui.card().classes('p-2 h-20 justify-between items-center border border-slate-200'):
-                                                    ui.label(name).classes('text-xs font-bold text-slate-700 text-center leading-tight'); ui.switch(value=initial_val, on_change=tgl).props('dense size=sm color=green')
+                                                
+                                                with ui.card().classes('control-tile p-3 h-24 flex flex-col justify-between'):
+                                                    with ui.row().classes('w-full justify-between items-start no-wrap'):
+                                                        ui.label(name).classes('tile-head leading-tight break-words pr-2')
+                                                        ui.switch(value=initial_val, on_change=tgl).props('dense size=xs color=cyan').classes('min-w-[30px]')
+                                                    ui.label('SWITCH_STATE').classes('tile-meta mt-auto self-start opacity-50')
+                                            
                                             elif typ == 'Input':
                                                 async def inp(e, i=nid):
-                                                    success, msg = await mgr.send_gm_to_port(state["sel_port"], i, e.value)
-                                                    if not success: ui.notify(msg, type='warning')
+                                                    await mgr.send_gm_to_port(state["sel_port"], i, e.value)
                                                 initial_val = self.client_context.ui_states.get(nid, "")
-                                                with ui.card().classes('p-2 h-20 justify-center gap-1 border border-slate-200'):
-                                                    ui.label(name).classes('text-[10px] font-bold text-slate-500 truncate w-full'); ui.input(value=initial_val, on_change=inp).props('dense outlined input-style="font-size:12px"').classes('w-full')
+                                                
+                                                with ui.card().classes('control-tile p-3 h-24 flex flex-col justify-between gap-2'):
+                                                    ui.label(name).classes('tile-head truncate w-full')
+                                                    ui.input(value=initial_val, on_change=inp).props('dense borderless input-class="text-xs text-center font-mono"').classes('w-full input-slot clean-input')
+                                            
                                             elif typ == 'Btn':
                                                 async def clk(i=nid):
-                                                    success, msg = await mgr.send_gm_to_port(state["sel_port"], i)
-                                                    if success: ui.notify(msg)
-                                                    else: ui.notify(msg, type='warning')
-                                                with ui.button(on_click=clk).classes('bg-white border border-slate-200 hover:bg-blue-50 p-2 h-20 rounded text-left flex flex-col justify-between'):
-                                                    ui.label(name).classes('text-xs font-bold text-slate-700 whitespace-normal leading-tight'); ui.icon('bolt', size='xs').classes('self-end text-amber-400')
+                                                    await mgr.send_gm_to_port(state["sel_port"], i)
+                                                    ui.notify(f'Triggered: {name}')
+                                                
+                                                with ui.card().classes('control-tile p-3 h-24 flex flex-col justify-between group').on('click', clk):
+                                                    ui.label(name).classes('tile-head leading-tight group-hover:text-[var(--accent)] transition-colors')
+                                                    with ui.row().classes('w-full justify-between items-end mt-auto'):
+                                                        ui.label('EXEC_CMD').classes('tile-meta opacity-40')
+                                                        ui.icon('touch_app', size='xs').classes('text-[var(--text-sec)] group-hover:text-[var(--accent)] transition-colors')
+                                            
                                             elif typ == 'SubBox':
-                                                with ui.card().classes('cursor-pointer hover:shadow-md transition-all p-3 h-20 justify-center items-center gap-2 border border-slate-200').on('click', lambda x=n: self.enter(x)):
-                                                    ui.icon('folder', size='sm').classes('text-blue-300'); ui.label(name).classes('text-xs font-bold text-center leading-tight')
+                                                with ui.card().classes('control-tile p-3 h-24 flex flex-col justify-center items-center gap-2 group').on('click', lambda x=n: self.enter(x)):
+                                                    ui.icon('folder_open', size='sm').classes('text-[var(--text-sec)] group-hover:text-[var(--accent)] transition-colors')
+                                                    ui.label(name).classes('tile-head text-center group-hover:text-[var(--text-pri)]')
+                        
                         explorer = GMExplorer()
-                        
-                        # --- FIX: Removed conditional optimization. Always load context on refresh. ---
-                        def refresh_gm_proxy(): 
-                            explorer.load_context()
-                        
+                        def refresh_gm_proxy(): explorer.load_context()
                         refresh_gm_panel_callback = refresh_gm_proxy
-                        
-                        def on_data_update(cid):
-                            p = state["sel_port"]
-                            if p:
-                                c = next((c for c in mgr.clients.values() if c.port == p), None)
-                                if c and c.id == cid: explorer.load_context()
-                        mgr.on_client_data_update = on_data_update
+                        mgr.on_client_data_update = lambda cid: refresh_gm_proxy() if state["sel_port"] else None
                         explorer.load_context()
 
                     with ui.tab_panel('CustomGM').classes('p-0'):
                         with ui.row().classes('w-full mb-3 justify-between items-center'):
-                            ui.button('Add', icon='add', on_click=lambda: add_dlg.open()).props('unelevated dense color=primary size=sm')
-                            
-                            with ui.dialog() as add_dlg, ui.card().classes('w-96 p-4 gap-3'):
-                                ui.label('New Command').classes('font-bold')
-                                n_in = ui.input('Name').classes('w-full')
-                                c_in = ui.textarea('Code').classes('w-full bg-slate-50')
-                                ui.button('Save', on_click=lambda: (custom_mgr.add(n_in.value, c_in.value), add_dlg.close(), r_cust())).props('unelevated color=primary')
+                            ui.button('NEW SCRIPT', icon='add', on_click=lambda: add_dlg.open()).props('unelevated dense size=sm').classes('btn-action px-3 text-xs')
+                            with ui.dialog() as add_dlg, ui.card().classes('w-96 p-4 gap-4 glass-panel border border-[var(--border-subtle)]'):
+                                ui.label('NEW PROTOCOL').classes('font-bold text-[var(--text-pri)] tech-font')
+                                n_in = ui.input('Name').classes('w-full clean-input input-slot px-2')
+                                c_in = ui.textarea('Payload').classes('w-full clean-textarea input-slot px-2')
+                                ui.button('SAVE', on_click=lambda: (custom_mgr.add(n_in.value, c_in.value), add_dlg.close(), r_cust())).classes('btn-action w-full')
                         
                         c_grid = ui.grid().classes('w-full gap-3')
-                        
                         def r_cust():
                             c_grid.clear()
                             cols = ui_settings['custom_cols']
                             c_grid.style(f'grid-template-columns: repeat({cols}, minmax(0, 1fr))')
-                            
                             with c_grid:
                                 for idx, item in enumerate(custom_mgr.commands):
-                                    with ui.card().classes('p-3 h-24 hover:shadow-md border border-slate-200 relative group justify-between'):
+                                    with ui.card().classes('control-tile p-3 h-24 flex flex-col justify-between group'):
                                         async def run_c(c=item['cmd']):
                                             success, msg = await mgr.send_to_port(state["sel_port"], c)
-                                            if success: ui.notify(msg)
-                                            else: ui.notify(msg, type='warning')
-                                        
+                                            if success: ui.notify(f"Sent: {item['name']}")
                                         with ui.column().classes('w-full h-full cursor-pointer justify-between gap-1').on('click', run_c):
-                                            ui.label(item['name']).classes('font-bold text-xs leading-tight break-all line-clamp-2')
-                                            ui.label(item['cmd']).classes('text-[10px] mono text-slate-400 truncate w-full')
-                                        
+                                            ui.label(item['name']).classes('tile-head line-clamp-2')
+                                            ui.label(item['cmd']).classes('tile-meta font-mono truncate w-full opacity-60')
                                         ui.button(icon='close', on_click=lambda i=idx: (custom_mgr.delete(i), r_cust())).props('flat dense round size=xs color=red').classes('absolute top-1 right-1 opacity-0 group-hover:opacity-100')
                         
                         refresh_custom_panel_callback = r_cust
                         r_cust()
 
-        # Logs
-        with ui.column().classes('w-[280px] h-full bg-white border-l border-slate-200 flex-none flex flex-col'):
-            with ui.row().classes('h-[40px] px-3 items-center justify-between border-b border-slate-100 bg-slate-50 w-full'):
-                ui.label('LOGS').classes('text-[10px] font-bold text-slate-500')
-                ui.button(icon='delete', on_click=lambda: log_container.clear()).props('flat dense round size=xs color=grey')
-            log_container = ui.column().classes('w-full flex-1 overflow-y-auto gap-0')
+        # --- RIGHT SIDEBAR (LOGS) ---
+        with ui.column().classes('w-[280px] h-full glass-panel border-r-0 border-y-0 flex-none flex flex-col'):
+            with ui.row().classes('h-[42px] px-3 items-center justify-between border-b border-[var(--border-subtle)] bg-[var(--bg-base)]/30 w-full'):
+                ui.label('SYSTEM_LOGS').classes('text-[10px] font-bold text-[var(--text-sec)] tech-font tracking-widest')
+                ui.button(icon='delete_outline', on_click=lambda: log_container.clear()).props('flat dense round size=xs').classes('text-[var(--text-sec)] hover:text-red-400')
+            log_container = ui.column().classes('w-full flex-1 overflow-y-auto gap-0 p-0')
 
 async def startup():
     if sys.platform == 'win32': asyncio.get_running_loop().set_exception_handler(_windows_exception_handler)
@@ -561,4 +736,4 @@ def kill_web_ui_port(port):
 
 if __name__ in {"__main__", "__mp_main__"}:
     kill_web_ui_port(9529)
-    ui.run(title="GM Enterprise", host="0.0.0.0", port=9529, reload=False, favicon='🚀')
+    ui.run(title="GM Core 7.0", host="0.0.0.0", port=9529, reload=False, favicon='💠')
