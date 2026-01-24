@@ -555,8 +555,8 @@ def main():
             # Main Controls
             with ui.column().classes('control-tile w-full flex-1 min-h-[400px] overflow-hidden'):
                 with ui.tabs().classes('w-full text-[var(--text-sec)] border-b border-[var(--border-subtle)] bg-[var(--bg-base)]/50').props('dense active-color="accent" indicator-color="accent" align="left"') as tabs:
-                    ui.tab('LuaGM', label='COMMAND_PROTOCOLS').classes('font-bold tech-font tracking-wider text-xs px-6')
-                    ui.tab('CustomGM', label='USER_SCRIPTS').classes('font-bold tech-font tracking-wider text-xs px-6')
+                    ui.tab('LuaGM', label='LuaGM').classes('font-bold tech-font tracking-wider text-xs px-6')
+                    ui.tab('CustomGM', label='CustomGM').classes('font-bold tech-font tracking-wider text-xs px-6')
                     ui.space()
                     
                     with ui.row().classes('items-center gap-3 mr-6'):
