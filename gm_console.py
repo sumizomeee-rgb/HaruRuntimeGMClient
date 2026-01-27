@@ -49,6 +49,10 @@ class CustomGmManager:
         if 0 <= index < len(self.commands):
             self.commands.pop(index)
             self.save()
+    def edit(self, index, name, cmd):
+        if 0 <= index < len(self.commands):
+            self.commands[index] = {"name": name, "cmd": cmd}
+            self.save()
 
 custom_mgr = CustomGmManager()
 
@@ -687,6 +691,16 @@ def main():
                                 n_in = ui.input(placeholder='PROTOCOL_NAME').props('dense borderless').classes('w-full clean-input input-slot px-2')
                                 c_in = ui.textarea(placeholder='PAYLOAD_LUA').props('borderless').classes('w-full clean-textarea input-slot px-2')
                                 ui.button('SAVE', on_click=lambda: (custom_mgr.add(n_in.value, c_in.value), add_dlg.close(), r_cust())).classes('btn-action w-full')
+                            
+                            # --- EDIT DIALOG ---
+                            edit_idx = [0]
+                            with ui.dialog() as edit_dlg, ui.card().classes('w-96 p-4 gap-4 glass-panel border border-[var(--border-subtle)]'):
+                                ui.label('EDIT PROTOCOL').classes('font-bold text-[var(--text-pri)] tech-font')
+                                e_n_in = ui.input(placeholder='PROTOCOL_NAME').props('dense borderless').classes('w-full clean-input input-slot px-2')
+                                e_c_in = ui.textarea(placeholder='PAYLOAD_LUA').props('borderless').classes('w-full clean-textarea input-slot px-2')
+                                with ui.row().classes('w-full gap-2'):
+                                    ui.button('SAVE', on_click=lambda: (custom_mgr.edit(edit_idx[0], e_n_in.value, e_c_in.value), edit_dlg.close(), r_cust())).classes('btn-action flex-1')
+                                    ui.button('CANCEL', on_click=lambda: edit_dlg.close()).classes('btn-action flex-1')
                         
                         c_grid = ui.grid().classes('w-full gap-3')
                         def r_cust():
@@ -696,13 +710,23 @@ def main():
                             with c_grid:
                                 for idx, item in enumerate(custom_mgr.commands):
                                     with ui.card().classes('control-tile p-3 h-24 flex flex-col justify-between group'):
-                                        async def run_c(c=item['cmd']):
+                                        async def run_c(c=item['cmd'], name=item['name']):
                                             success, msg = await mgr.send_to_port(state["sel_port"], c)
-                                            if success: ui.notify(f"Sent: {item['name']}")
+                                            if success: ui.notify(f"Sent: {name}")
                                         with ui.column().classes('w-full h-full cursor-pointer justify-between gap-1').on('click', run_c):
                                             ui.label(item['name']).classes('tile-head line-clamp-2')
                                             ui.label(item['cmd']).classes('tile-meta font-mono truncate w-full opacity-60')
-                                        ui.button(icon='close', on_click=lambda i=idx: (custom_mgr.delete(i), r_cust())).props('flat dense round size=xs color=red').classes('absolute top-1 right-1 opacity-0 group-hover:opacity-100')
+                                        def open_edit(current_item=item, current_idx=idx):
+                                            e_n_in.set_value(current_item['name'])
+                                            e_c_in.set_value(current_item['cmd'])
+                                            edit_idx[0] = current_idx
+                                            edit_dlg.open()
+                                        def open_delete(current_idx=idx):
+                                            custom_mgr.delete(current_idx)
+                                            r_cust()
+                                        with ui.row().classes('absolute top-1 right-1 gap-1 opacity-0 group-hover:opacity-100'):
+                                            ui.button(icon='edit', on_click=open_edit).props('flat dense round size=xs color-amber').classes('hover:text-amber-300')
+                                            ui.button(icon='close', on_click=open_delete).props('flat dense round size=xs color-red').classes('hover:text-red-400')
                         
                         refresh_custom_panel_callback = r_cust
                         r_cust()
